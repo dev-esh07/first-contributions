@@ -33,9 +33,7 @@ jobs:
 
           # Validate and sanitize the filenames
           FILES_CHANGED=""
-          echo "$FILES_CHANGED"
           for file in $PR_FILES; do
-            echo "$PR_FILES"
             if [[ "$file" == "Contributors.md" ]]; then
               FILES_CHANGED+=" $file"
             fi
