@@ -1,8 +1,26 @@
------BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACCHnhAnm9cXPO3sCzNBE4WxSjKvkglws8SQsmqcngGeYgAAAKhQJOStUCTk
-rQAAAAtzc2gtZWQyNTUxOQAAACCHnhAnm9cXPO3sCzNBE4WxSjKvkglws8SQsmqcngGeYg
-AAAECxtSO8aZ4SgwHSzNcNuWF6EpHsLcqJ6hk9RHukkUOuHYeeECeb1xc87ewLM0EThbFK
-Mq+SCXCzxJCyapyeAZ5iAAAAHnNoZXJqZWVsY2hhdWRoYXJ5MDExQGdtYWlsLmNvbQECAw
-QFBgc=
------END OPENSSH PRIVATE KEY-----
+**Please DO NOT publish your PK. It's your password you're sharing with the public.**
+
+Follow this step to remove
+
+Go to your terminal (Local machine). 
+
+```bash
+git checkout first-contributions
+```
+
+Now do this command to reset the commit. 
+
+This command will remove the private key commit
+
+```bash
+git reset --hard bb7f740a75c939747866ce213c91bc180ac827f4
+```
+
+Now push these changes to your GitHub
+
+``bash 
+git push --force
+```
+
+
+
