@@ -1,5 +1,5 @@
 # Contributors
-- [Giovanni Canales](https://github.com/gio-puter)
+Replaced this line to test with auto merge script
 -[Abhishek Bharti](https://github.com/abhishekbrt)
 - [Carlos Villermosa](https://github.com/CarlosViller)
 - [Saumitra Dubey](https://github.com/sam-punk) 
