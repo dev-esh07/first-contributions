@@ -19,7 +19,7 @@ jobs:
       files_changed: ${{ steps.check_num_of_files_modified_step.outputs.files_changed }}
       is_only_contributors_file_changed: ${{ steps.check_num_of_files_modified_step.outputs.only_contributors }}
       is_only_one_line_modified: ${{ steps.check_num_of_lines_modified_step.outputs.only_one_line_edited }}
-      contributors_md_content: ${{ steps.check_num_of_files_modified_step.outputs.only_added_contents }}
+      contributors_md_content: ${{ steps.check_num_of_lines_modified_step.outputs.contributors_md_content }}
 
     steps:
       - name: Checkout to PR branch
@@ -67,18 +67,7 @@ jobs:
           if [[ "${FILES_CHANGED_LIST// /}" == "Contributors.md" ]]; then
 
             # share output with other workflow
-            echo "only_contributors=true" >> "$GITHUB_OUTPUT" 
-
-            # toJSON convert to JSON and jq -r get the value from "patch" as raw 
-            CONTRIBUTORS_MD_CONTENT=$(echo ${{ toJSON(env.pr_files ) }} | jq -r '.[].patch')
-
-            # This command uses 'awk' to extract lines from the variable 'CONTRIBUTORS_MD_CONTENT' that were added in a diff.
-            # 'awk' processes each line as a separate record (due to 'BEGIN{RS="\\n"}').
-            # It then matches lines starting with a '+' sign (corresponding to lines added in a diff) and prints each matching line, excluding the first character (which is the '+' sign).
-            only_added_contents=$(echo "$CONTRIBUTORS_MD_CONTENT" | awk 'BEGIN{RS="\\n"} /^\+/{print substr($0, 2)}')
-            echo $only_added_contents
-            echo "contributors_md_content=$only_added_contents" >> "$GITHUB_OUTPUT"
-            
+            echo "only_contributors=true" >> "$GITHUB_OUTPUT"          
 
             #share env within step
             echo "only_contributors=true" >> $GITHUB_ENV
@@ -100,13 +89,23 @@ jobs:
 
           # check only one line added, or only one line changed, or only one line deleted and one line added which makes 2 number of changes in Contributors.md file
 
-          if [[ ( $ADDITIONS -eq 1 && $CHANGES -eq 1 && $DELETIONS -eq 0 ) || ( $ADDITIONS -eq 1 && $CHANGES -eq 2 && $DELETIONS -eq 1 ) ]]; then
+          if [[ ( $ADDITIONS -eq 1 && $CHANGES -eq 1 && $DELETIONS -eq 0 ) || ( $ADDITIONS -eq 0 && $CHANGES -eq 1 && $DELETIONS -eq 1 ) ]]; then
 
             # add to job output
             echo "only_one_line_edited=true" >> "$GITHUB_OUTPUT"
 
             # env variable
             echo "only_one_line_edited=true" >> $GITHUB_ENV
+
+            # toJSON convert to JSON and jq -r get the value from "patch" as raw 
+            CONTRIBUTORS_MD_CONTENT=$(echo ${{ toJSON(env.pr_files ) }} | jq -r '.[].patch')
+
+            # This command uses 'awk' to extract lines from the variable 'CONTRIBUTORS_MD_CONTENT' that were added in a diff.
+            # 'awk' processes each line as a separate record (due to 'BEGIN{RS="\\n"}').
+            # It then matches lines starting with a '+' sign (corresponding to lines added in a diff) and prints each matching line, excluding the first character (which is the '+' sign).
+            only_added_contents=$(echo "$CONTRIBUTORS_MD_CONTENT" | awk 'BEGIN{RS="\\n"} /^\+/{print substr($0, 2)}')
+
+            echo "contributors_md_content=$only_added_contents" >> "$GITHUB_OUTPUT"
 
           else
 
@@ -154,13 +153,15 @@ jobs:
         with:
           script: |
             try{
-              const body = `Hello @${context.payload.pull_request.user.login}, Thank you for your contribution! We appreciate your effort and time.\n\nHowever, we noticed that there are multiple changes in the Contributors.md file. \n\nPlease add only one new line to the Contributors.md file. For a better understanding, please refer to the [3rd bullet point in the Contributing Guidelines](https://github.com/firstcontributions/first-contributions/issues/35892) \n\n## How to fix this?\n\nYou can follow [this guide](https://www.gitkraken.com/learn/git/problems/undo-git-commit). \n\nIf you need any help, feel free to ask.\n\nKeep up the good work! 😊`
-              github.rest.issues.createComment({
+              const body = `Hello @${context.payload.pull_request.user.login}, Thank you for your contribution! We appreciate your effort and time.\n\n However, It seems that you replaced the existing line or made multiple changes in the Contributors.md file. \n\nPlease add only one new line to the Contributors.md file. For a better understanding, please refer to the [3rd bullet point in the Contributing Guidelines](https://github.com/firstcontributions/first-contributions/issues/35892) \n\n## How to fix this?\n\nYou can follow [this guide](https://www.gitkraken.com/learn/git/problems/undo-git-commit). \n\nIf you need any help, feel free to ask.\n\nKeep up the good work! 😊`
+              const review = {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
+                pull_number: context.issue.number,
+                body: body,
+                event: 'REQUEST_CHANGES'
+              };
+              github.rest.pulls.createReview(review);
 
               core.setFailed('Please only add one new line to the Contributors.md file. Please do not make multiple changes in the Contributors.md file');
 
@@ -177,7 +178,6 @@ jobs:
         with:
           script: |
             try{
-
                 const body = `Hey @${context.payload.pull_request.user.login}, thank you for your pull request. This pull request contains changes in files which requires review. The following files were changed:\n\n  ${process.env.files_changed.trim() ? `\n\n${process.env.files_changed.trim().split(' ').map(file => `- ${file}`).join('\n')}` : ''}`
                 
                 github.rest.issues.createComment({
@@ -247,19 +247,8 @@ jobs:
         id: separate_text_and_links_from_content
         if: env.get_is_only_contributors_file_changed == 'true' && env.get_is_only_one_line_modified == 'true'
         run: |
-          # get only the texts and links from the contents
-          #only_added_links=$(echo "$only_added_contents" | grep -oP '(https?://)?(www\.)?[\w-]+\.[\w-]+(/[-\w./?%&=]*)?') 
-          # --xx Not suported xxx
-          #only_added_links=$(echo "$only_added_contents" | grep -oP '(https?://)?(www\.)?[\w-]+\.[\w-]+(/[-\w./?%&=]*)?' | tr '\n' ' ')
-
-          #alternative 
           #the regular expression ((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}) will match any word that starts with http://, https://, or www., or any word that looks like a domain name (one or more alphanumeric characters or hyphens, followed by a dot and two or more alphabetic characters).
           only_added_links=$(echo "$get_contributors_md_content" | awk 'BEGIN{RS=" ";} /((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/{print}' | sed 's/[.,;]$//')
-
-          # split the links into array (untested) 
-          #array_of_threat_links=($only_added_links)
-          # Extract text from the only_added_contents variable while ignoring links (old one and untested)
-          #only_added_texts=$(echo "$get_contributors_md_content" | grep -vE "$only_added_links" | grep -oP '[\w\s]+')
 
           #alternative one (replace the grep to awk)
           : << 'END_COMMENT'
@@ -277,7 +266,12 @@ jobs:
 
                   #store text and ignore link 
                   only_text_content=${get_contributors_md_content//$word/}
+              
+              else
+                  # store text
+                  only_text_content+="$word "
               fi
+
           done
 
           # set the env variables
@@ -335,25 +329,22 @@ jobs:
           script: |
             async function checkProfanity() {
               try {
-                const response = await fetch(`https://www.purgomalum.com/service/containsprofanity?text=${{ env.only_added_texts }}`);
+                const response = await fetch(`https://www.purgomalum.com/service/containsprofanity?text="${{ env.only_added_texts }}"`);
                 if (!response.ok) {
                   core.setFailed(`HTTP error! status: ${response.status}`);
                 }
 
                 const text = await response.text();
-                console.log(text);
 
                 // check if the response is empty
                 if (text === 'true') {
                   console.log('Inappropriate words found in the texts');
                   core.setOutput('is_safe_contents_text', false);
                   core.exportVariable('is_safe_contents_text', 'false');
-                  console.log(${{ env.is_safe_contents_text }})
                 } else if (text === 'false') {
                   console.log('No inappropriate words found in the texts');
                   core.setOutput('is_safe_contents_text', true);
                   core.exportVariable('is_safe_contents_text', 'true');
-                  console.log(${{ env.is_safe_contents_text }})
                 } else {
                   throw new Error('Unexpected response: ' + text);
                   core.setFailed('Unexpected response: ' + text);
@@ -368,18 +359,20 @@ jobs:
 
       # Post comment on offensive content PR about code of conduct
       - name: Post comment on PR containing offensive content about code of conduct
-        if: env.is_safe_contents == 'false' && env.get_is_only_contributors_file_changed == 'true' && env.get_is_only_one_line_modified == 'true'
+        if: env.is_safe_contents_text == 'false' && env.get_is_only_contributors_file_changed == 'true' && env.get_is_only_one_line_modified == 'true'
         uses: actions/github-script@v5
         with:
           script: |
             try{
               const body = `Hello @${context.payload.pull_request.user.login}, Thank you for your contribution! 🎉\n\nWe appreciate your contribution to the project. However, we have a [code of conduct](https://github.com/firstcontributions/first-contributions/blob/main/CODE_OF_CONDUCT.md) that we expect all contributors to follow. \n\nPlease remove the offensive content from your pull request and then push your changes again. \n\nIf you need any help, feel free to ask.`
-              github.rest.issues.createComment({
+              const review = {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
+                pull_number: context.issue.number,
+                body: body,
+                event: 'REQUEST_CHANGES'
+              };
+              github.rest.pulls.createReview(review);
 
             } catch (error) {
               console.error("Error posting comment:", error.message);
@@ -390,7 +383,7 @@ jobs:
 
       # Close the PR if it contains offensive content
       - name: Close PR if it contains offensive content
-        if: env.is_safe_contents == 'false' && env.get_is_only_contributors_file_changed == 'true' && env.get_is_only_one_line_modified == 'true'
+        if: env.is_safe_contents_text == 'false' && env.get_is_only_contributors_file_changed == 'true' && env.get_is_only_one_line_modified == 'true'
         uses: actions/github-script@v5
         with:
           script: |
@@ -469,14 +462,12 @@ jobs:
                     retries++;
                   }
                 }
-                console.log(`this is mergeable status value - ${mergeable}`);
 
                 if(retries === maxRetries) {
                   console.log('Maximum number of retries exceeded. Mergeability is still null.')
                   core.setFailed('Maximum number of retries exceeded. Mergeability is still null.');
                 } 
                 if (mergeable === true) {
-                  console.log('Mergeable')
                   core.setOutput('is_pr_mergeable', true);
                   core.exportVariable('is_pr_mergeable', true);
                 } else if (mergeable === false){
@@ -536,12 +527,16 @@ jobs:
           script: |
             try{
               const body = `Hello @${context.payload.pull_request.user.login}, Thank you for your contribution! 🎉\n\nUnfortunately, there is a merge conflict in your Pull Request. Please pull the latest changes from the main branch, [resolve the conflict](additional-material/git_workflow_scenarios/resolving-merge-conflicts.md), and then push your changes again.\n\nIf you need any help, feel free to ask.\n\nKeep up the good work! 😊`
-              github.rest.issues.createComment({
+              
+              const review = {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
+                pull_number: context.issue.number,
+                body: body,
+                event: 'REQUEST_CHANGES'
+              };
+
+              github.rest.pulls.createReview(review);
 
             } catch (error) {
               console.error("Error posting comment:", error.message);
@@ -609,13 +604,23 @@ jobs:
                 // Generate the merge message using the getMergeMessage function
                 const message = getMergeMessage(context.payload.pull_request.user.login);
 
-                // post a comment
-                await github.rest.issues.createComment({
+                // post a comment on the PR with approval and merge message
+                const approval = {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: message
-                })
+                  pull_number: context.issue.number,
+                  body: message,
+                  event: 'APPROVE'
+                };
+
+                github.rest.pulls.createReview(approval);
+
+                # await github.rest.issues.createComment({
+                #   owner: context.repo.owner,
+                #   repo: context.repo.repo,
+                #   issue_number: context.issue.number,
+                #   body: message
+                # })
               
             } catch (error) {
               console.error("Error posting comment:", error.message);
