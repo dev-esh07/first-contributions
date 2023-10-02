@@ -268,7 +268,7 @@ PRAJOT
 - [Nicholas-Garbutt](https://github.com/Nicholas-Garbutt)
 - [Vita Golubovska](https://github.com/Golubko)
 - [Jason Betsargon](https://github.com/JasonBet)
-- [Chirag Gupta](https://github.com/chirag-9121)
+
 
 - [Ritesh Sadh](https://github.com/sadhritesh)
 - [John Jomar Dimaunahan](https://github.com/DJohnJomar)
